@@ -41,8 +41,8 @@ def errcheck(result):
 def find_excel_file():
     # 测试用 - 取消注释以下三行用于测试
     # =====================================================
-    file_path = "/Volumes/SSD 1TB/GEhealthcare/202508/Preventive-Pending Report.xlsx"
-    return file_path
+    #file_path = "/Volumes/SSD 1TB/GEhealthcare/202508/Preventive-Pending Report.xlsx"
+    #return file_path
     # =====================================================
 
     # 正式用
@@ -93,6 +93,24 @@ def clean_filename(name):
     # 移除特殊字符，只保留字母、数字、中文、下划线和短横线
     return re.sub(r'[\\/*?:"<>|]', "", name).strip()
 
+def total_model(processed_df,output_dir):
+    # 生成全表模型统计文件
+    model_stats = (
+        processed_df
+        .groupby(['Model', 'Manufacture'])
+        .size()
+        .reset_index(name='Count')
+        .sort_values(by='Count', ascending=False)
+    )
+    total_model_path = output_dir / "TotalModel.xlsx"
+    try:
+        model_stats.to_excel(total_model_path, index=False)
+        print(f"已创建模型统计文件: {total_model_path}")
+    except Exception as e:
+        print(f"生成模型统计文件失败: {e}")
+
+    print("处理完成!")
+    return ErrCode.SUCCESS
 
 def generate_location_files(location_df, location, output_dir, template_path, chunk_size=20):
     """为特定Location生成分表文件"""
@@ -279,6 +297,8 @@ def preprocess(file_path):
     for location, group in grouped:
         print(f"处理Location: {location}, 设备数: {len(group)}")
         generate_location_files(group, location, output_dir, template_path)
+
+    total_model(processed_df,output_dir)
 
     print("处理完成!")
     return ErrCode.SUCCESS
