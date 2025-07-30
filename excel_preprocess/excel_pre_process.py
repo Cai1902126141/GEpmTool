@@ -92,7 +92,14 @@ def total_model(processed_df,output_dir):
     total_model_path = output_dir / "TotalModel.xlsx"
     try:
         model_stats.to_excel(total_model_path, index=False)
+        # 添加总数量行
+        wb = load_workbook(total_model_path)
+        ws = wb.active
+        total_count = sum(model_stats['Count'])
+        ws.append(["", "", "Total", total_count])  # 在最后一行添加总和
+        wb.save(total_model_path)
         print(f"已创建模型统计文件: {total_model_path}")
+
     except Exception as e:
         print(f"生成模型统计文件失败: {e}")
 
