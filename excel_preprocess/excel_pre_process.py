@@ -1,14 +1,9 @@
 import os
 import sys
-import numpy as np
-import inspect
 import pandas as pd
 from pathlib import Path
-import openpyxl
 from openpyxl import load_workbook
-from openpyxl.styles import Alignment, Font, NamedStyle, Border, PatternFill, Side
 from openpyxl.utils import get_column_letter
-from openpyxl.utils.dataframe import dataframe_to_rows
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import re
@@ -26,16 +21,8 @@ class ErrCode:
 
 
 def errcheck(result):
-    frame = inspect.currentframe()
-    try:
-        # 获取调用栈中上一帧（调用此函数的帧）
-        caller_frame = frame.f_back
-        line = caller_frame.f_lineno
-    finally:
-        # 显式删除帧引用以避免内存泄漏
-        del frame
     if result != ErrCode.SUCCESS:
-        print(f"err_code:{result},line:{line}")
+        print(f"err_code:{result}")
 
 
 def find_excel_file():
@@ -97,7 +84,7 @@ def total_model(processed_df,output_dir):
     # 生成全表模型统计文件
     model_stats = (
         processed_df
-        .groupby(['Model', 'Manufacture'])
+        .groupby(['Model', 'Manufacture','Description'])
         .size()
         .reset_index(name='Count')
         .sort_values(by='Count', ascending=False)
@@ -143,67 +130,65 @@ def generate_location_files(location_df, location, output_dir, template_path, ch
         # 创建基于模板的新工作簿
         wb = load_workbook(template_path)
         ws = wb.active
+        # 设置打印方向为横向
+        ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
 
         # 解除设备区域的合并单元格（避免写入错误）
         merged_ranges = list(ws.merged_cells.ranges)
         for merged_range in merged_ranges:
             # 只解除设备数据区域的合并单元格（第2行到第21行）
-            if merged_range.min_row >= 2 and merged_range.min_row <= 21:
+            if merged_range.min_row >= 8 and merged_range.min_row <= 27:
                 ws.unmerge_cells(str(merged_range))
 
         # 填充设备数据
+        col_map = {
+            'Asset ID': 2,
+            'Location': 3,
+            'Manufacture': 5,
+            'Model': 6,
+            'Serial No': 7,
+            'Description': 8,
+            'ZT': 9,
+            'HA Work Order No': 10,
+            'Service Report Reference': 14,
+        }
+
         for local_idx, (_, row) in enumerate(chunk_df.iterrows()):
-            excel_row = local_idx + 2  # local_idx 是每个 chunk 内的行号，从 0 开始
+            excel_row = local_idx + 8  # local_idx 是每个 chunk 内的行号，从 0 开始
 
 
             # 确保行在有效范围内（2-21）
-            if excel_row > 21:
+            if excel_row > 27:
                 print(f"警告: 行号 {excel_row} 超出模板范围，跳过")
                 continue
 
-            # 设置资产ID (B列)
-            if pd.notna(row.get('Asset ID')):
-                ws.cell(row=excel_row, column=2).value = row['Asset ID']
+            for field, col in col_map.items():
+                value = row.get(field)
+                if pd.notna(value):
+                    ws.cell(row=excel_row, column=col).value = value
 
-            # 设置位置 (C列)
-            if pd.notna(row.get('Location')):
-                ws.cell(row=excel_row, column=3).value = row['Location']
-
-            # 设置制造商 (E列)
-            if pd.notna(row.get('Manufacture')):
-                ws.cell(row=excel_row, column=5).value = row['Manufacture']
-
-            # 设置型号 (F列)
-            if pd.notna(row.get('Model')):
-                ws.cell(row=excel_row, column=6).value = row['Model']
-
-            # 设置序列号 (G列)
-            if pd.notna(row.get('Serial No')):
-                ws.cell(row=excel_row, column=7).value = row['Serial No']
-
-            # 设置描述 (H列)
-            if pd.notna(row.get('Description')):
-                ws.cell(row=excel_row, column=8).value = row['Description']
-
-            # 设置ZT状态 (I列)
-            if pd.notna(row.get('ZT')):
-                ws.cell(row=excel_row, column=9).value = row['ZT']
-
-            # 设置HA工单号 (J列)
-            if pd.notna(row.get('HA Work Order No')):
-                ws.cell(row=excel_row, column=10).value = row['HA Work Order No']
-
-            # 设置服务报告参考 (N列)
-            if pd.notna(row.get('Service Report Reference')):
-                ws.cell(row=excel_row, column=14).value = row['Service Report Reference']
+            # 设置计划日期 (L列)
+            schedule_date = row.get('Schedule Date')
+            if pd.notna(schedule_date):
+                try:
+                    date_obj = pd.to_datetime(schedule_date)
+                    formatted_date = date_obj.strftime("%b-%Y")
+                    ws.cell(row=excel_row, column=12).value = f"        {formatted_date}"
+                    ws.cell(row=excel_row, column=11).value = date_obj.replace(year=date_obj.year + 1).strftime("%b-%Y")
+                except Exception as e:
+                    print(f"日期格式错误: {schedule_date}, 错误: {e}")
 
         # 设置联系人信息（使用第一条记录的信息）
         if not chunk_df.empty:
             first_row = chunk_df.iloc[0]
+            # 设置医院信息（将Hospital内容添加到B6原本文本的末尾）
+            if pd.notna(first_row.get('Hospital')):
+                current_value = ws.cell(row=6, column=2).value or ""
+                ws.cell(row=6, column=2).value = f"{current_value}{first_row['Hospital']}"
             if pd.notna(first_row.get('Caller')):
-                ws.cell(row=24, column=5).value = first_row['Caller']  # E24
+                ws.cell(row=30, column=5).value = first_row['Caller']  # E24
             if pd.notna(first_row.get('Caller Tel')):
-                ws.cell(row=24, column=7).value = first_row['Caller Tel']  # G24
+                ws.cell(row=30, column=7).value = first_row['Caller Tel']  # G24
 
         # 保存文件
         wb.save(output_path)
@@ -236,6 +221,7 @@ def preprocess(file_path):
     # 列映射定义 (Excel列字母 -> 我们的列名)
     col_mapping = {
         'D': 'Asset ID',
+        'F': 'Hospital',
         'K': 'Location',
         'L': 'Manufacture',
         'M': 'Model',
@@ -243,6 +229,7 @@ def preprocess(file_path):
         'O': 'Description',
         'EV': 'ZT',
         'R': 'HA Work Order No',
+        'T': 'Schedule Date',
         'U': 'Service Report Reference',
         'I': 'Caller',
         'J': 'Caller Tel'
