@@ -8,9 +8,23 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import re
 
+# ========== 全局配置参数 ==========
+DEFAULT_INITIAL_DIR = Path("/Volumes/SSD 1TB/GEhealthcare/202508")
+DEFAULT_REPORT_PATH = Path("/Volumes/SSD 1TB/GEhealthcare/Doc/report_demo.xlsx")
+DEFAULT_OUTPUT_PATH = Path("/Volumes/SSD 1TB/GEhealthcare/202508/Output")
+DEVICE_HEADER_KEYS = {
+    'Asset ID': 'B',
+    'Location': 'C',
+    'Manufacture': 'E',
+    'Model': 'F',
+    'Serial No': 'G',
+    'Description': 'H',
+    'ZT': 'I',
+    'HA Work Order No': 'J',
+    'Service Report Reference': 'N'
+}
+
 """error check module"""
-
-
 class ErrCode:
     """标准错误码常量 (符合 0=成功 约定)"""
     SUCCESS = 0  # 操作成功
@@ -44,34 +58,13 @@ def find_excel_file():
             ("Excel 文件", "*.xlsx *.xls"),
             ("所有文件", "*.*")
         ],
-        initialdir="/Volumes/SSD 1TB/GEhealthcare/"  # 初始目录
+        initialdir=DEFAULT_INITIAL_DIR  # 初始目录
     )
     root.destroy()  # 关闭 tkinter 窗口
     if not file_path:
         print("未选择文件，操作取消")
         return None
     return file_path
-
-
-def get_template_path():
-    """获取模板文件路径"""
-    # 固定模板路径
-    template_path = Path("/Volumes/SSD 1TB/GEhealthcare/Doc/report_demo.xlsx")
-
-    if template_path.exists():
-        return template_path
-    else:
-        # 如果固定路径不存在，尝试让用户选择
-        root = tk.Tk()
-        root.withdraw()
-        template_path = filedialog.askopenfilename(
-            title="选择模板文件",
-            filetypes=[("Excel 文件", "*.xlsx")],
-            initialdir="/Volumes/SSD 1TB/GEhealthcare/Doc/"
-        )
-        root.destroy()
-        return template_path if template_path else None
-
 
 def clean_filename(name):
     """清理文件名中的无效字符"""
@@ -163,7 +156,6 @@ def generate_location_files(location_df, location, output_dir, template_path, ch
         for local_idx, (_, row) in enumerate(chunk_df.iterrows()):
             excel_row = local_idx + 8  # local_idx 是每个 chunk 内的行号，从 0 开始
 
-
             # 确保行在有效范围内（8-27）
             if excel_row > 27:
                 print(f"警告: 行号 {excel_row} 超出模板范围，跳过")
@@ -205,13 +197,13 @@ def generate_location_files(location_df, location, output_dir, template_path, ch
 def preprocess(file_path):
     """主处理函数"""
     # 获取模板文件路径
-    template_path = get_template_path()
+    template_path = DEFAULT_REPORT_PATH
     if not template_path or not Path(template_path).exists():
         print("错误: 模板文件未找到")
         return ErrCode.TEMPLATE_NOT_FOUND
 
     # 获取当前文件的目录
-    output_dir = Path(file_path).parent / 'Output'
+    output_dir = DEFAULT_OUTPUT_PATH
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"输出目录: {output_dir}")
 
@@ -305,7 +297,7 @@ if __name__ == "__main__":
     print("=" * 60)
 
     # 查找Excel文件
-    target_file = ()
+    target_file = find_excel_file()
     if target_file:
         result = preprocess(target_file)
         if result == ErrCode.SUCCESS:
