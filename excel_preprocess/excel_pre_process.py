@@ -27,7 +27,7 @@ def errcheck(result):
 
 def find_excel_file():
     # 测试用 - 取消注释以下三行用于测试
-    # =====================================================
+    # =================find_excel_file====================================
     #file_path = "/Volumes/SSD 1TB/GEhealthcare/202508/Preventive-Pending Report.xlsx"
     #return file_path
     # =====================================================
@@ -143,7 +143,7 @@ def generate_location_files(location_df, location, output_dir, template_path, ch
         # 解除设备区域的合并单元格（避免写入错误）
         merged_ranges = list(ws.merged_cells.ranges)
         for merged_range in merged_ranges:
-            # 只解除设备数据区域的合并单元格（第2行到第21行）
+            # 只解除设备数据区域的合并单元格（第8行到第27行）
             if merged_range.min_row >= 8 and merged_range.min_row <= 27:
                 ws.unmerge_cells(str(merged_range))
 
@@ -164,7 +164,7 @@ def generate_location_files(location_df, location, output_dir, template_path, ch
             excel_row = local_idx + 8  # local_idx 是每个 chunk 内的行号，从 0 开始
 
 
-            # 确保行在有效范围内（2-21）
+            # 确保行在有效范围内（8-27）
             if excel_row > 27:
                 print(f"警告: 行号 {excel_row} 超出模板范围，跳过")
                 continue
@@ -193,9 +193,9 @@ def generate_location_files(location_df, location, output_dir, template_path, ch
                 current_value = ws.cell(row=6, column=2).value or ""
                 ws.cell(row=6, column=2).value = f"{current_value}{first_row['Hospital']}"
             if pd.notna(first_row.get('Caller')):
-                ws.cell(row=30, column=5).value = first_row['Caller']  # E24
+                ws.cell(row=30, column=5).value = first_row['Caller']  # E30
             if pd.notna(first_row.get('Caller Tel')):
-                ws.cell(row=30, column=7).value = first_row['Caller Tel']  # G24
+                ws.cell(row=30, column=7).value = first_row['Caller Tel']  # G30
 
         # 保存文件
         wb.save(output_path)
@@ -305,7 +305,7 @@ if __name__ == "__main__":
     print("=" * 60)
 
     # 查找Excel文件
-    target_file = find_excel_file()
+    target_file = ()
     if target_file:
         result = preprocess(target_file)
         if result == ErrCode.SUCCESS:
