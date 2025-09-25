@@ -51,11 +51,12 @@ def openfolder(path):
             subprocess.Popen(["xdg-open", path])
 
 class ExcelProcess:
-    def __init__(self, sample_report_path, output_folder,):
+    def __init__(self, sample_report_path, output_folder,logger=None):
         # 将传入的路径规范为 pathlib.Path（若为空则保留 None）
         self.output_folder = Path(output_folder) if output_folder else None
         self.sample_report_path = Path(sample_report_path) if sample_report_path else None
         #self.default_report_path = Path("/Volumes/SSD 1TB/GEhealthcare/Doc/report_demo.xlsx")
+        self.logger = logger
 
         self.device_header_keys = {
             'Asset ID': 'B',
@@ -104,6 +105,12 @@ class ExcelProcess:
             'I': 'Caller',
             'J': 'Caller Tel'
         }
+
+    def log(self,message:str):
+        if self.logger:
+            self.logger(message)
+        else:
+            print(message)
 
     @staticmethod
     def clean_filename(name):
@@ -154,10 +161,10 @@ class ExcelProcess:
                 ws.column_dimensions[column_letter].width = adjusted_width
 
             wb.save(total_model_path)
-            print(f"已创建模型统计文件: {total_model_path}")
+            self.logger(f"已创建模型统计文件: {total_model_path}")
 
         except Exception as e:
-            print(f"生成模型统计文件失败: {e}")
+            self.logger(f"生成模型统计文件失败: {e}")
 
         return 1
 
@@ -166,7 +173,7 @@ class ExcelProcess:
         # 清理Location名称用于文件名
         clean_loc = self.clean_filename(location)
         if not clean_loc:
-            print(f"无效的Location名称: {location}")
+            self.logger(f"无效的Location名称: {location}")
             return
 
         # 按Model和Asset ID排序
@@ -255,23 +262,23 @@ class ExcelProcess:
         # 获取模板文件路径
         template_path = self.sample_report_path
         if not template_path or not Path(template_path).exists():
-            print("错误: 模板文件未找到")
+            self.logger("错误: 模板文件未找到")
             return 0
 
         file_path = self.output_folder
         # 获取当前文件的目录
         output_dir = Path(file_path).parent / "Output"
         output_dir.mkdir(parents=True, exist_ok=True)
-        print(f"输出目录: {output_dir}")
+        self.logger(f"输出目录: {output_dir}")
 
         try:
-            print(f"正在读取总表文件: {file_path}")
+            self.logger(f"正在读取总表文件: {file_path}")
             # 读取Excel文件
             df = pd.read_excel(file_path, engine='openpyxl')
-            print(f"成功读取文件: 共 {len(df)} 条记录")
+            self.logger(f"成功读取文件: 本月共有「 {len(df)} 」部機器")
 
         except Exception as e:
-            print(f"读取文件失败: {e}")
+            self.logger(f"读取文件失败: {e}")
             return 0
 
         # 创建反向映射 (列字母 -> 列索引)
@@ -312,29 +319,28 @@ class ExcelProcess:
         processed_df = pd.DataFrame(processed_data)
 
         if processed_df.empty:
-            print("警告: 没有找到有效的Location数据")
+            self.logger("警告: 没有找到有效的Location数据")
             return 0
 
         # 按Location分组处理
         grouped = processed_df.groupby('Location')
-        print(f"找到 {len(grouped)} 个不同的Location")
+        self.logger(f"找到 {len(grouped)} 个不同的Location")
 
         # 为每个Location生成分表
         for location, group in grouped:
-            print(f"处理Location: {location}, 设备数: {len(group)}")
+            self.logger(f"处理Location: {location}, 设备数: {len(group)}")
             self.generate_location_files(group, location, output_dir, template_path)
 
         self.total_model(processed_df,output_dir)
 
-        print("处理完成!")
         return 1
 
     def run(self):
         result = self.preprocess()
         if result:
-            print("===========操作成功完成!==========")
+            self.logger("===========操作完成!==========")
         else:
-            print("===========处理出错===========")
+            self.logger("===========操作失敗!===========")
 
 class MyWindows(QMainWindow, Ui_MainWindow):
     #屬性配置
@@ -393,13 +399,15 @@ class MyWindows(QMainWindow, Ui_MainWindow):
         output_path = self.lineEdit_6.text()
         if self.path_check("Sample_Report_File", sample_report_path):
             if self.path_check("Target File", output_path):
-                processor = ExcelProcess(self.lineEdit_5.text(), self.lineEdit_6.text())
+                #把UI裡對應的信息和接口傳給ExcelProcess類函數運行
+                processor = ExcelProcess(self.lineEdit_5.text(), self.lineEdit_6.text(),logger=self.log_output)
                 processor.run()
 
-
+    #退出程序
     def exit_program(self):
         self.close()
 
+    #UI輸出log的接口
     def log_output(self, text):
         """將日誌消息輸出到 UI 的 plainTextEdit"""
         self.plainTextEdit.appendPlainText(text)
