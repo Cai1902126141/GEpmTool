@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>820</width>
-    <height>831</height>
+    <width>792</width>
+    <height>595</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -40,7 +40,7 @@
      <string/>
     </property>
     <property name="placeholderText">
-     <string/>
+     <string>.../Preventive-Pending Report.xlsx</string>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton_3">
@@ -111,7 +111,7 @@
      <string/>
     </property>
     <property name="placeholderText">
-     <string>/Volumes/SSD 1TB/GEhealthcare/Doc/report_demo.xlsx</string>
+     <string>.../report_demo.xlsx</string>
     </property>
    </widget>
    <widget class="QLabel" name="label_2">
@@ -213,38 +213,79 @@
      <rect>
       <x>330</x>
       <y>250</y>
-      <width>121</width>
+      <width>81</width>
       <height>16</height>
      </rect>
     </property>
     <property name="text">
-     <string>log</string>
+     <string>Log Window</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_4">
+    <property name="geometry">
+     <rect>
+      <x>410</x>
+      <y>246</y>
+      <width>51</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Clear</string>
     </property>
    </widget>
   </widget>
+  <widget class="QStatusBar" name="statusbar"/>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>820</width>
-     <height>24</height>
+     <width>792</width>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu">
     <property name="title">
-     <string>開始</string>
+     <string>Start</string>
     </property>
+    <addaction name="actionTool"/>
    </widget>
    <widget class="QMenu" name="menu_2">
     <property name="title">
-     <string>設置</string>
+     <string>Help</string>
     </property>
+    <addaction name="actionGuide"/>
+    <addaction name="actionAbout"/>
    </widget>
    <addaction name="menu"/>
    <addaction name="menu_2"/>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionReport">
+   <property name="text">
+    <string>Report</string>
+   </property>
+  </action>
+  <action name="actionPDF">
+   <property name="text">
+    <string>PDF</string>
+   </property>
+  </action>
+  <action name="actionGuide">
+   <property name="text">
+    <string>Guide</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
+   </property>
+  </action>
+  <action name="actionTool">
+   <property name="text">
+    <string>Tool</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>

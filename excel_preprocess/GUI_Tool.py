@@ -8,6 +8,7 @@ from openpyxl import load_workbook
 from openpyxl.styles.builtins import output
 from openpyxl.utils import get_column_letter
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
+from PySide6.QtCore import QSettings
 from ui_GEpmToolUI import Ui_MainWindow
 #from excel_pre_process import run
 
@@ -51,11 +52,13 @@ def openfolder(path):
             subprocess.Popen(["xdg-open", path])
 
 class ExcelProcess:
-    def __init__(self, sample_report_path, output_folder,logger=None):
+    def __init__(self, pm_engineer, pm_phone_number, sample_report_path, output_folder,logger=None):
         # 将传入的路径规范为 pathlib.Path（若为空则保留 None）
         self.output_folder = Path(output_folder) if output_folder else None
         self.sample_report_path = Path(sample_report_path) if sample_report_path else None
         #self.default_report_path = Path("/Volumes/SSD 1TB/GEhealthcare/Doc/report_demo.xlsx")
+        self.pm_engineer = pm_engineer
+        self.pm_phone_number = pm_phone_number
         self.logger = logger
 
         self.device_header_keys = {
@@ -89,21 +92,22 @@ class ExcelProcess:
             'Service Report Reference': 14,
         }
 
-        # report裡的列映射定义 (Excel列字母 -> 我们的列名)
-        self.col_mapping = {
-            'D': 'Asset ID',
-            'F': 'Hospital',
-            'K': 'Location',
-            'L': 'Manufacture',
-            'M': 'Model',
-            'N': 'Serial No',
-            'O': 'Description',
-            'EU': 'ZT',
-            'R': 'HA Work Order No',
-            'T': 'Schedule Date',
-            'U': 'Service Report Reference',
-            'I': 'Caller',
-            'J': 'Caller Tel'
+        # 新增：動態標題匹配，不再使用固定列字母
+        # key = 需要的目標欄位名稱, value = 可接受的表頭關鍵字（忽略大小寫）
+        self.dynamic_header_rules = {
+            'Asset ID': ['asset id', 'assetid', 'asset'],
+            'Hospital': ['hospital', 'site'],
+            'Location': ['location', 'loc'],
+            'Manufacture': ['manufacture', 'mfr', 'maker'],
+            'Model': ['model'],
+            'Serial No': ['serial no', 'sn', 'serial'],
+            'Description': ['description', 'desc'],
+            'ZT': ['zt'],
+            'HA Work Order No': ['ha work order no', 'wo', 'work order'],
+            'Schedule Date': ['schedule date', 'sch date', 'schedule'],
+            'Service Report Reference': ['service report reference', 'sr ref'],
+            'Caller': ['caller'],
+            'Caller Tel': ['caller tel', 'caller phone', 'tel']
         }
 
     def log(self,message:str):
@@ -252,6 +256,10 @@ class ExcelProcess:
                     ws.cell(row=28, column=5).value = first_row['Caller']  # E30
                 if pd.notna(first_row.get('Caller Tel')):
                     ws.cell(row=28, column=7).value = first_row['Caller Tel']  # G30
+                if self.pm_engineer:
+                    ws.cell(row=27, column=5).value = self.pm_engineer  # E27
+                if self.pm_phone_number:
+                    ws.cell(row=27, column=7).value = self.pm_phone_number # G27
 
             # 保存文件
             wb.save(output_path)
@@ -281,11 +289,19 @@ class ExcelProcess:
             self.logger(f"读取文件失败: {e}")
             return 0
 
-        # 创建反向映射 (列字母 -> 列索引)
-        col_letter_to_index = {}
-        for idx, col in enumerate(df.columns):
-            col_letter = get_column_letter(idx + 1)
-            col_letter_to_index[col_letter] = col
+        # 動態搜尋表頭欄位
+        resolved_columns = {}
+
+        for target_key, keywords in self.dynamic_header_rules.items():
+            found_col = None
+            for col in df.columns:
+                normalized = str(col).strip().lower()
+                if any(keyword in normalized for keyword in keywords):
+                    found_col = col
+                    break
+            resolved_columns[target_key] = found_col
+
+        #self.log(f"動態匹配到的欄位: {resolved_columns}")
 
         # 创建新的DataFrame用于处理
         processed_data = []
@@ -295,18 +311,16 @@ class ExcelProcess:
             row_data = {}
 
             # 处理每一列
-            for col_letter, col_name in self.col_mapping.items():
-                # 检查列字母是否在映射中
-                if col_letter in col_letter_to_index:
-                    original_col_name = col_letter_to_index[col_letter]
+            for col_name, original_col_name in resolved_columns.items():
+                if original_col_name is not None:
                     value = row[original_col_name]
 
-                    # 处理特定列的数据类型
+                    # 型別處理
                     if col_name in ['Asset ID', 'HA Work Order No']:
                         try:
                             # 尝试转换为整数，如果失败则保持原样
                             value = int(value) if pd.notna(value) else None
-                        except (ValueError, TypeError):
+                        except:
                             pass
 
                     row_data[col_name] = value
@@ -348,16 +362,32 @@ class MyWindows(QMainWindow, Ui_MainWindow):
         super().__init__()
         self.setupUi(self)
         self.bind()
-
         self.sample_path = None #config["paths"]["sample_path"]
         self.report_path = None #config["paths"]["report_path"]
+        self.settings = QSettings("GEpmTool", "UserConfig")
+        self.load_settings()
 
     def bind(self):
         self.pushButton.clicked.connect(self.process)
         self.pushButton_2.clicked.connect(self.exit_program)
         self.pushButton_3.clicked.connect(self.open_output_folder)
+        self.pushButton_4.clicked.connect(self.log_clear)
         self.toolButton.clicked.connect(self.set_sample_path)
         self.toolButton_2.clicked.connect(self.set_output_path)
+
+        self.actionGuide.triggered.connect(self.show_guide)
+
+    def load_settings(self):
+        self.lineEdit.setText(self.settings.value("pm_engineer", ""))  # 工程師名稱
+        self.lineEdit_2.setText(self.settings.value("pm_phone", ""))  # 工程師電話
+        self.lineEdit_5.setText(self.settings.value("sample_path", ""))  # 模板路徑
+        self.lineEdit_6.setText(self.settings.value("output_path", ""))  # 目標表格路徑
+
+    def save_settings(self):
+        self.settings.setValue("pm_engineer", self.lineEdit.text())
+        self.settings.setValue("pm_phone", self.lineEdit_2.text())
+        self.settings.setValue("sample_path", self.lineEdit_5.text())
+        self.settings.setValue("output_path", self.lineEdit_6.text())
 
     def set_sample_path(self):
         file_path = find_path(select_folder=False)
@@ -395,13 +425,16 @@ class MyWindows(QMainWindow, Ui_MainWindow):
             openfolder(file_path)
 
     def process(self):
+        pm_engineer = self.lineEdit.text()
+        pm_phone_number = self.lineEdit_2.text()
         sample_report_path = self.lineEdit_5.text()
         output_path = self.lineEdit_6.text()
         if self.path_check("Sample_Report_File", sample_report_path):
             if self.path_check("Target File", output_path):
                 #把UI裡對應的信息和接口傳給ExcelProcess類函數運行
-                processor = ExcelProcess(self.lineEdit_5.text(), self.lineEdit_6.text(),logger=self.log_output)
+                processor = ExcelProcess(pm_engineer, pm_phone_number, sample_report_path, output_path,logger=self.log_output)
                 processor.run()
+                self.save_settings()
 
     #退出程序
     def exit_program(self):
@@ -411,6 +444,19 @@ class MyWindows(QMainWindow, Ui_MainWindow):
     def log_output(self, text):
         """將日誌消息輸出到 UI 的 plainTextEdit"""
         self.plainTextEdit.appendPlainText(text)
+
+    # 清空log的窗口
+    def log_clear(self):
+        self.plainTextEdit.clear()
+
+    def show_guide(self):
+        QMessageBox.information(self,'Guide',
+                                             'Step1:填自己名\n'
+                                             'Step2:填自己電話\n'
+                                             'Step3:SampleReport->找Koen\n'
+                                             'Step4:TargetFile->APM獲取PMTaskReport\n'
+                                             'Step5:點擊Generate\n'
+                                             'Step6:點擊OutputFolder查看生成文件')
 
 if __name__ == '__main__':
     app = QApplication([])
