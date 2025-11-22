@@ -98,7 +98,7 @@ class ExcelProcess:
             'M': 'Model',
             'N': 'Serial No',
             'O': 'Description',
-            'EV': 'ZT',
+            'EU': 'ZT',
             'R': 'HA Work Order No',
             'T': 'Schedule Date',
             'U': 'Service Report Reference',
