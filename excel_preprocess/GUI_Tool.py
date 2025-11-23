@@ -10,7 +10,7 @@ from openpyxl.utils import get_column_letter
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
 from PySide6.QtCore import QSettings
 from ui_GEpmToolUI import Ui_MainWindow
-#from excel_pre_process import run
+
 
 # ========== 預設参数 ==========
 DEFAULT_INITIAL_DIR = Path("/Volumes/SSD 1TB/GEhealthcare") # or = Path("")
