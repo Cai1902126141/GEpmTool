@@ -64,17 +64,6 @@ class ExcelProcess:
         self.pm_phone_number = pm_phone_number
         self.logger = logger
 
-        self.device_header_keys = {
-            'Asset ID': 'B',
-            'Location': 'C',
-            'Manufacture': 'E',
-            'Model': 'F',
-            'Serial No': 'G',
-            'Description': 'H',
-            'ZT': 'I',
-            'HA Work Order No': 'J',
-            'Service Report Reference': 'N'
-        }
         # PM规则配置: key为关键字, value为偏移(月数)
         self.pm_rules = {
             "DEFIBRILLATOR": 6,  # 加6个月
@@ -82,7 +71,7 @@ class ExcelProcess:
         }
         self.default_pm_offset = 12  # 默认加12个月
 
-        # 需填充的设备数据
+        # demo report 對應需填充的设备数据
         self.col_map = {
             'Asset ID': 2,
             'Location': 3,
@@ -112,7 +101,7 @@ class ExcelProcess:
             'Service Report Reference': ['service report reference'],
             'Caller': ['caller'],
             'Caller Tel': ['caller tel'],
-            'Status': ['status']
+            'Status': ['^status$'] #只接受完全等於「Status」
         }
 
     def log(self, message: str):
@@ -288,7 +277,6 @@ class ExcelProcess:
             self.logger(f"正在读取总表文件: {file_path}")
             # 读取Excel文件
             df = pd.read_excel(file_path, engine='openpyxl')
-            self.logger(f"成功读取文件: 本月共有「 {len(df)} 」部機器")
 
         except Exception as e:
             self.logger(f"读取文件失败: {e}")
@@ -296,16 +284,15 @@ class ExcelProcess:
 
         # 動態搜尋表頭欄位
         resolved_columns = {}
-
         for target_key, keywords in self.dynamic_header_rules.items():
             found_col = None
             for col in df.columns:
                 normalized = str(col).strip().lower()
-                if any(keyword in normalized for keyword in keywords):
+                if any(re.fullmatch(pattern, normalized) for pattern in keywords):
                     found_col = col
                     break
             resolved_columns[target_key] = found_col
-
+            #print(f"已创建分表: {found_col}") #測試尋找表頭是否正確
         # self.log(f"動態匹配到的欄位: {resolved_columns}")
 
         # 创建新的DataFrame用于处理
@@ -330,12 +317,15 @@ class ExcelProcess:
 
                     row_data[col_name] = value
 
-            # 只添加有Location数据的行
-            if pd.notna(row_data.get('Location')):
+            # 只處理Status為Accepted或On Hold,且Location非空数据的行
+            status_value = row_data.get('Status')
+            location_value = row_data.get('Location')
+            if pd.notna(row_data.get('Location')) and status_value in ['Accepted','On Hold']:
                 processed_data.append(row_data)
 
         # 创建新的DataFrame
         processed_df = pd.DataFrame(processed_data)
+        self.logger(f"成功读取文件: 本月共有「 {len(processed_df)} 」部機器")
 
         if processed_df.empty:
             self.logger("警告: 没有找到有效的Location数据")
