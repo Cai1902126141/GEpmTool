@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>MainWindow</class>
- <widget class="QMainWindow" name="MainWindow">
+ <class>GEpmTool</class>
+ <widget class="QMainWindow" name="GEpmTool">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>487</width>
-    <height>591</height>
+    <width>499</width>
+    <height>587</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -234,6 +234,87 @@
      <string>Clear</string>
     </property>
    </widget>
+   <widget class="QCheckBox" name="onHoldBox">
+    <property name="geometry">
+     <rect>
+      <x>160</x>
+      <y>10</y>
+      <width>85</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>On Hold</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="bessBox">
+    <property name="geometry">
+     <rect>
+      <x>160</x>
+      <y>30</y>
+      <width>85</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>BESS</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_3">
+    <property name="geometry">
+     <rect>
+      <x>250</x>
+      <y>10</y>
+      <width>91</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>BESS Asset list</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_4">
+    <property name="geometry">
+     <rect>
+      <x>360</x>
+      <y>10</y>
+      <width>121</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>PM DurTime Rule</string>
+    </property>
+   </widget>
+   <widget class="QPlainTextEdit" name="bessList">
+    <property name="geometry">
+     <rect>
+      <x>250</x>
+      <y>30</y>
+      <width>91</width>
+      <height>111</height>
+     </rect>
+    </property>
+    <property name="placeholderText">
+     <string notr="true">Input Asset</string>
+    </property>
+   </widget>
+   <widget class="QPlainTextEdit" name="plainTextEdit_3">
+    <property name="geometry">
+     <rect>
+      <x>360</x>
+      <y>30</y>
+      <width>91</width>
+      <height>111</height>
+     </rect>
+    </property>
+    <property name="plainText">
+     <string/>
+    </property>
+    <property name="placeholderText">
+     <string>Unused Default PM Exp Time        12 Months Defibrillator   6 Months</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QMenuBar" name="menubar">
@@ -241,7 +322,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>487</width>
+     <width>499</width>
      <height>30</height>
     </rect>
    </property>

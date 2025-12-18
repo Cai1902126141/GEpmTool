@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBo
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
-from ui_GEpmToolUI import Ui_MainWindow
+from ui_GEpmToolUI import Ui_GEpmTool
 
 # ========== 預設参数 ==========
 DEFAULT_INITIAL_DIR = Path("/Volumes/SSD 1TB/GEhealthcare")  # or = Path("")
@@ -57,6 +57,7 @@ def openfolder(path):
 class ExcelProcess:
     def __init__(self, pm_engineer, pm_phone_number, sample_report_path, output_folder, logger=None):
         # 将传入的路径规范为 pathlib.Path（若为空则保留 None）
+        self.bessBox = None
         self.output_folder = Path(output_folder) if output_folder else None
         self.sample_report_path = Path(sample_report_path) if sample_report_path else None
         # self.default_report_path = Path("/Volumes/SSD 1TB/GEhealthcare/Doc/report_demo.xlsx")
@@ -75,7 +76,7 @@ class ExcelProcess:
         self.col_map = {
             'Asset ID': 2,
             'Location': 3,
-            'Remark': 3,
+            'Remark': 4,
             'Manufacture': 5,
             'Model': 6,
             'Serial No': 7,
@@ -294,7 +295,15 @@ class ExcelProcess:
             resolved_columns[target_key] = found_col
             #print(f"已创建分表: {found_col}") #測試尋找表頭是否正確
         # self.log(f"動態匹配到的欄位: {resolved_columns}")
-
+        
+        # 解析 bessList
+        bess_assets = []
+        if hasattr(self, "bessList") and hasattr(self, "bessBox") and self.bessBox.isChecked():
+            text = self.bessList.toPlainText()
+            bess_assets = [str(a).strip() for a in re.split(r"[\n,]+", text) if a.strip()]
+            self.logger(f"BESS 跟機共: {len(bess_assets)}台")
+            #self.logger(f"BESS Asset: {bess_assets}")
+            
         # 创建新的DataFrame用于处理
         processed_data = []
 
@@ -317,10 +326,29 @@ class ExcelProcess:
 
                     row_data[col_name] = value
 
-            # 只處理Status為Accepted或On Hold,且Location非空数据的行
+            # 分别处理Accepted和On Hold，且Location非空且非空字符串
             status_value = row_data.get('Status')
             location_value = row_data.get('Location')
-            if pd.notna(row_data.get('Location')) and status_value in ['Accepted','On Hold']:
+            asset_id = row_data.get('Asset ID')
+
+            # BESS 特殊處理
+            asset_id_str = str(asset_id).strip() if pd.notna(asset_id) else ""
+            if bess_assets and asset_id_str in bess_assets:
+                row_data['__status_group'] = 'BESS'
+                row_data['Remark'] = 'BESS'
+                processed_data.append(row_data)
+                #print(f"已找到bess Asset{row_data}")
+                continue  # 已處理，跳過 Accepted/OnHold
+
+            if status_value == 'Accepted' and pd.notna(location_value) and str(location_value).strip() != "":
+                row_data['__status_group'] = 'Accepted'
+                processed_data.append(row_data)
+
+            elif hasattr(self, "onHoldBox") and self.onHoldBox.isChecked() \
+                and status_value == 'On Hold' and pd.notna(location_value) and str(location_value).strip() != "":
+                # On Hold 设备：Location 独立分组，并写 Remark
+                row_data['__status_group'] = 'On Hold'
+                row_data['Remark'] = 'On Hold'
                 processed_data.append(row_data)
 
         # 创建新的DataFrame
@@ -331,8 +359,17 @@ class ExcelProcess:
             self.logger("警告: 没有找到有效的Location数据")
             return 0
 
-        # 按Location分组处理
-        grouped = processed_df.groupby('Location')
+        # 按Location分组处理（On Hold 和 BESS 设备Location独立分组）
+        def group_key(row):
+            if row.get('__status_group') == 'On Hold':
+                return f"{row['Location']}_OnHold"
+            elif row.get('__status_group') == 'BESS':
+                return f"{row['Location']}_BESS"
+            else:
+                return row['Location']
+
+        grouped = processed_df.groupby(processed_df.apply(group_key, axis=1))
+
         self.logger(f"找到 {len(grouped)} 个不同的Location")
 
         # 为每个Location生成分表
@@ -352,7 +389,7 @@ class ExcelProcess:
             self.logger("===========操作失敗!===========")
 
 
-class MyWindows(QMainWindow, Ui_MainWindow):
+class MyWindows(QMainWindow, Ui_GEpmTool):
     # 屬性配置
     def __init__(self):
         super().__init__()
@@ -370,6 +407,9 @@ class MyWindows(QMainWindow, Ui_MainWindow):
         self.pushButton_4.clicked.connect(self.log_clear)
         self.toolButton.clicked.connect(self.set_sample_path)
         self.toolButton_2.clicked.connect(self.set_output_path)
+        self.bessBox.setChecked(False)
+        self.onHoldBox.setChecked(True)
+        self.bessList.setPlainText("")
 
         self.actionGuide.triggered.connect(self.show_guide)
 
@@ -378,12 +418,16 @@ class MyWindows(QMainWindow, Ui_MainWindow):
         self.lineEdit_2.setText(self.settings.value("pm_phone", ""))  # 工程師電話
         self.lineEdit_5.setText(self.settings.value("sample_path", ""))  # 模板路徑
         self.lineEdit_6.setText(self.settings.value("output_path", ""))  # 目標表格路徑
+        self.bessBox.setChecked(self.settings.value("bessBox_checked", True, type=bool))
+        self.onHoldBox.setChecked(self.settings.value("onHoldBox_checked", True, type=bool))
 
     def save_settings(self):
         self.settings.setValue("pm_engineer", self.lineEdit.text())
         self.settings.setValue("pm_phone", self.lineEdit_2.text())
         self.settings.setValue("sample_path", self.lineEdit_5.text())
         self.settings.setValue("output_path", self.lineEdit_6.text())
+        self.settings.setValue("bessBox_checked", self.bessBox.isChecked())
+        self.settings.setValue("onHoldBox_checked", self.onHoldBox.isChecked())
 
     def set_sample_path(self):
         file_path = find_path(select_folder=False)
@@ -429,8 +473,20 @@ class MyWindows(QMainWindow, Ui_MainWindow):
         if self.path_check("Sample_Report_File", sample_report_path):
             if self.path_check("Target File", output_path):
                 # 把UI裡對應的信息和接口傳給ExcelProcess類函數運行
-                processor = ExcelProcess(pm_engineer, pm_phone_number, sample_report_path, output_path,
-                                         logger=self.log_output)
+                processor = ExcelProcess(
+                    pm_engineer,
+                    pm_phone_number,
+                    sample_report_path,
+                    output_path,
+                    logger=self.log_output
+                    )
+
+                # 將 UI 的 BESS/OnHold 控件和 bessList 傳給 processor
+                # 注意：processor 內部會用 hasattr 判斷控件是否存在
+                processor.bessBox = getattr(self, "bessBox", None)
+                processor.onHoldBox = getattr(self, "onHoldBox", None)
+                processor.bessList = getattr(self, "bessList", None)
+
                 processor.run()
                 self.save_settings()
 
@@ -453,8 +509,10 @@ class MyWindows(QMainWindow, Ui_MainWindow):
                                 'Step2:填自己電話\n'
                                 'Step3:SampleReport->找Koen\n'
                                 'Step4:TargetFile->APM獲取PMTaskReport\n'
-                                'Step5:點擊Generate\n'
-                                'Step6:點擊OutputFolder查看生成文件')
+                                'Step5:按需要勾選OnHold或BESS\n'
+                                'Step6:輸入BESS Asset,每個Asset回車換行(如無可跳過)\n'
+                                'Step7:點擊Generate\n'
+                                'Step8:點擊OutputFolder查看生成文件')
 
 
 if __name__ == '__main__':
