@@ -2,20 +2,21 @@ import os
 import re
 import subprocess
 import sys
-import pandas as pd
 from pathlib import Path
-from openpyxl import load_workbook
-from openpyxl.styles.builtins import output
-from openpyxl.utils import get_column_letter
-from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
+
+import pandas as pd
 from PySide6.QtCore import QSettings
+from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
+from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
+
 from ui_GEpmToolUI import Ui_MainWindow
 
-
 # ========== 預設参数 ==========
-DEFAULT_INITIAL_DIR = Path("/Volumes/SSD 1TB/GEhealthcare") # or = Path("")
+DEFAULT_INITIAL_DIR = Path("/Volumes/SSD 1TB/GEhealthcare")  # or = Path("")
 
-#弹出窗口选择目标文件或文件夹
+
+# 弹出窗口选择目标文件或文件夹
 def find_path(select_folder=False):
     """使用 PySide6 选择文件或文件夹"""
     if select_folder:
@@ -42,21 +43,23 @@ def find_path(select_folder=False):
             return None
         return file_path
 
+
 def openfolder(path):
-        #path = "/Volumes/SSD 1TB/GEhealthcare"
-        if sys.platform == "win32":  # Windows
-            os.startfile(path)
-        elif sys.platform == "darwin":  # macOS
-            subprocess.Popen(["open", path])
-        else:  # Linux
-            subprocess.Popen(["xdg-open", path])
+    # path = "/Volumes/SSD 1TB/GEhealthcare"
+    if sys.platform == "win32":  # Windows
+        os.startfile(path)
+    elif sys.platform == "darwin":  # macOS
+        subprocess.Popen(["open", path])
+    else:  # Linux
+        subprocess.Popen(["xdg-open", path])
+
 
 class ExcelProcess:
-    def __init__(self, pm_engineer, pm_phone_number, sample_report_path, output_folder,logger=None):
+    def __init__(self, pm_engineer, pm_phone_number, sample_report_path, output_folder, logger=None):
         # 将传入的路径规范为 pathlib.Path（若为空则保留 None）
         self.output_folder = Path(output_folder) if output_folder else None
         self.sample_report_path = Path(sample_report_path) if sample_report_path else None
-        #self.default_report_path = Path("/Volumes/SSD 1TB/GEhealthcare/Doc/report_demo.xlsx")
+        # self.default_report_path = Path("/Volumes/SSD 1TB/GEhealthcare/Doc/report_demo.xlsx")
         self.pm_engineer = pm_engineer
         self.pm_phone_number = pm_phone_number
         self.logger = logger
@@ -83,6 +86,7 @@ class ExcelProcess:
         self.col_map = {
             'Asset ID': 2,
             'Location': 3,
+            'Remark': 3,
             'Manufacture': 5,
             'Model': 6,
             'Serial No': 7,
@@ -95,22 +99,23 @@ class ExcelProcess:
         # 新增：動態標題匹配，不再使用固定列字母
         # key = 需要的目標欄位名稱, value = 可接受的表頭關鍵字（忽略大小寫）
         self.dynamic_header_rules = {
-            'Asset ID': ['asset id', 'assetid', 'asset'],
-            'Hospital': ['hospital', 'site'],
-            'Location': ['location', 'loc'],
-            'Manufacture': ['manufacture', 'mfr', 'maker'],
+            'Asset ID': ['asset id'],
+            'Hospital': ['hospital'],
+            'Location': ['location'],
+            'Manufacture': ['manufacture'],
             'Model': ['model'],
-            'Serial No': ['serial no', 'sn', 'serial'],
-            'Description': ['description', 'desc'],
+            'Serial No': ['serial no'],
+            'Description': ['description'],
             'ZT': ['zt'],
-            'HA Work Order No': ['ha work order no', 'wo', 'work order'],
-            'Schedule Date': ['schedule date', 'sch date', 'schedule'],
-            'Service Report Reference': ['service report reference', 'sr ref'],
+            'HA Work Order No': ['ha work order no'],
+            'Schedule Date': ['schedule date'],
+            'Service Report Reference': ['service report reference'],
             'Caller': ['caller'],
-            'Caller Tel': ['caller tel', 'caller phone', 'tel']
+            'Caller Tel': ['caller tel'],
+            'Status': ['status']
         }
 
-    def log(self,message:str):
+    def log(self, message: str):
         if self.logger:
             self.logger(message)
         else:
@@ -128,7 +133,7 @@ class ExcelProcess:
         output_path = MyWindows.get_output_path()
         return output_path
 
-    def total_model(self ,processed_df,output_path):
+    def total_model(self, processed_df, output_path):
         model_stats = (
             processed_df
             .groupby(['Manufacture', 'Model', 'Description'])
@@ -259,7 +264,7 @@ class ExcelProcess:
                 if self.pm_engineer:
                     ws.cell(row=27, column=5).value = self.pm_engineer  # E27
                 if self.pm_phone_number:
-                    ws.cell(row=27, column=7).value = self.pm_phone_number # G27
+                    ws.cell(row=27, column=7).value = self.pm_phone_number  # G27
 
             # 保存文件
             wb.save(output_path)
@@ -301,7 +306,7 @@ class ExcelProcess:
                     break
             resolved_columns[target_key] = found_col
 
-        #self.log(f"動態匹配到的欄位: {resolved_columns}")
+        # self.log(f"動態匹配到的欄位: {resolved_columns}")
 
         # 创建新的DataFrame用于处理
         processed_data = []
@@ -345,7 +350,7 @@ class ExcelProcess:
             self.logger(f"处理Location: {location}, 设备数: {len(group)}")
             self.generate_location_files(group, location, output_dir, template_path)
 
-        self.total_model(processed_df,output_dir)
+        self.total_model(processed_df, output_dir)
 
         return 1
 
@@ -356,14 +361,15 @@ class ExcelProcess:
         else:
             self.logger("===========操作失敗!===========")
 
+
 class MyWindows(QMainWindow, Ui_MainWindow):
-    #屬性配置
+    # 屬性配置
     def __init__(self):
         super().__init__()
         self.setupUi(self)
         self.bind()
-        self.sample_path = None #config["paths"]["sample_path"]
-        self.report_path = None #config["paths"]["report_path"]
+        self.sample_path = None  # config["paths"]["sample_path"]
+        self.report_path = None  # config["paths"]["report_path"]
         self.settings = QSettings("GEpmTool", "UserConfig")
         self.load_settings()
 
@@ -400,13 +406,13 @@ class MyWindows(QMainWindow, Ui_MainWindow):
             self.lineEdit_6.setText(file_path)  # 把路徑填寫到 lineEdit_6
 
     def path_check(self, line, path_str):
-        if os.path.isdir(path_str):# 如果 lineEdit_6內容為非法路徑
+        if os.path.isdir(path_str):  # 如果 lineEdit_6內容為非法路徑
             QMessageBox.warning(self, "提示", f"請選用正確的{line}")
             return 0
-        elif not path_str:# 如果 lineEdit_6內容為空
-            QMessageBox.warning(self,"提示",f"{line}不能為空")
+        elif not path_str:  # 如果 lineEdit_6內容為空
+            QMessageBox.warning(self, "提示", f"{line}不能為空")
             return 0
-        else:# 如果 lineEdit_6 內容為文件
+        else:  # 如果 lineEdit_6 內容為文件
             return 1
 
     def get_output_path(self):
@@ -418,10 +424,11 @@ class MyWindows(QMainWindow, Ui_MainWindow):
             return output_path
         else:
             return None
-    def open_output_folder(self) :
+
+    def open_output_folder(self):
         file_path = self.get_output_path()
         if file_path:
-            #打開對應目錄
+            # 打開對應目錄
             openfolder(file_path)
 
     def process(self):
@@ -431,16 +438,17 @@ class MyWindows(QMainWindow, Ui_MainWindow):
         output_path = self.lineEdit_6.text()
         if self.path_check("Sample_Report_File", sample_report_path):
             if self.path_check("Target File", output_path):
-                #把UI裡對應的信息和接口傳給ExcelProcess類函數運行
-                processor = ExcelProcess(pm_engineer, pm_phone_number, sample_report_path, output_path,logger=self.log_output)
+                # 把UI裡對應的信息和接口傳給ExcelProcess類函數運行
+                processor = ExcelProcess(pm_engineer, pm_phone_number, sample_report_path, output_path,
+                                         logger=self.log_output)
                 processor.run()
                 self.save_settings()
 
-    #退出程序
+    # 退出程序
     def exit_program(self):
         self.close()
 
-    #UI輸出log的接口
+    # UI輸出log的接口
     def log_output(self, text):
         """將日誌消息輸出到 UI 的 plainTextEdit"""
         self.plainTextEdit.appendPlainText(text)
@@ -450,13 +458,14 @@ class MyWindows(QMainWindow, Ui_MainWindow):
         self.plainTextEdit.clear()
 
     def show_guide(self):
-        QMessageBox.information(self,'Guide',
-                                             'Step1:填自己名\n'
-                                             'Step2:填自己電話\n'
-                                             'Step3:SampleReport->找Koen\n'
-                                             'Step4:TargetFile->APM獲取PMTaskReport\n'
-                                             'Step5:點擊Generate\n'
-                                             'Step6:點擊OutputFolder查看生成文件')
+        QMessageBox.information(self, 'Guide',
+                                'Step1:填自己名\n'
+                                'Step2:填自己電話\n'
+                                'Step3:SampleReport->找Koen\n'
+                                'Step4:TargetFile->APM獲取PMTaskReport\n'
+                                'Step5:點擊Generate\n'
+                                'Step6:點擊OutputFolder查看生成文件')
+
 
 if __name__ == '__main__':
     app = QApplication([])
