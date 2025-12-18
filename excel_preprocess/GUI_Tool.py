@@ -300,9 +300,10 @@ class ExcelProcess:
         bess_assets = []
         if hasattr(self, "bessList") and hasattr(self, "bessBox") and self.bessBox.isChecked():
             text = self.bessList.toPlainText()
-            bess_assets = [str(a).strip() for a in re.split(r"[\n,]+", text) if a.strip()]
+            # 去重並保持輸入順序
+            raw_assets = [str(a).strip() for a in re.split(r"[\n,]+", text) if a.strip()]
+            bess_assets = list(dict.fromkeys(raw_assets))
             self.logger(f"BESS 跟機共: {len(bess_assets)}台")
-            #self.logger(f"BESS Asset: {bess_assets}")
             
         # 创建新的DataFrame用于处理
         processed_data = []
